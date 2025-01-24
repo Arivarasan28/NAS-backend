@@ -13,4 +13,5 @@ public class DoctorDTO {
     private String specialization;
     private String email;
     private String phone;
+    private String profilePictureName; // File name of the profile picture
 }

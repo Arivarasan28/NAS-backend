@@ -19,5 +19,6 @@ public class Doctor {
     private String email;
     private String phone;
 
-
+    @Column(name = "profile_picture_name")
+    private String profilePictureName; // File name of the profile picture
 }

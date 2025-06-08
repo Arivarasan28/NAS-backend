@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/patient")
+@RequestMapping("/api/patients")
 public class PatientController {
 
     @Autowired
@@ -36,6 +36,11 @@ public class PatientController {
     public String deletePatient(@PathVariable int patientId) {
         patientService.deleteById(patientId);
         return "Deleted patient id: " + patientId;
+    }
+    
+    @GetMapping("/user/{userId}")
+    public PatientDTO getPatientByUserId(@PathVariable int userId) {
+        return patientService.findByUserId(userId);
     }
 
     @PutMapping("/{patientId}")

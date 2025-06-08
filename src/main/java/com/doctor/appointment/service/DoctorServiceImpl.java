@@ -66,14 +66,22 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor existingDoctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found: " + doctorId));
 
+        // Update doctor fields
         existingDoctor.setName(doctorCreateDTO.getName());
         existingDoctor.setSpecialization(doctorCreateDTO.getSpecialization());
         existingDoctor.setEmail(doctorCreateDTO.getEmail());
         existingDoctor.setPhone(doctorCreateDTO.getPhone());
 
+        // Handle profile picture if provided
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
             String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
             existingDoctor.setProfilePictureName(fileName);
+        }
+
+        // Make sure we preserve the User relationship
+        // This is critical - without this, the relationship might be lost during update
+        if (existingDoctor.getUser() == null) {
+            throw new RuntimeException("Doctor has no associated user account. Cannot update.");
         }
 
         Doctor updatedDoctor = doctorRepository.save(existingDoctor);

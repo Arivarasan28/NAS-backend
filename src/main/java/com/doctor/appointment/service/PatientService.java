@@ -16,4 +16,6 @@ public interface PatientService {
     void deleteById(int theId);
 
     PatientDTO update(int patientId, PatientCreateDTO patientCreateDTO);
+    
+    PatientDTO findByUserId(int userId);
 }

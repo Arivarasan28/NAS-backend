@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: appointment
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appointment
+    username: postgres
+    password: Arivu1123
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+  # Add profiles configuration
+  profiles:
+    active: dev
+  # OpenAPI configuration
+  springdoc:
+    api-docs:
+      path: /api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+      operationsSorter: method
+      tagsSorter: alpha
+      tryItOutEnabled: true
+      filter: true
+
+server:
+  port: 8081
+  # Remove the context-path to avoid duplicate /api in URLs
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.doctor.appointment: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/application.log
+
+# JWT Configuration
+jwt:
+  secret: your_jwt_secret_key_here_make_it_long_and_secure_in_production
+  expiration: 86400000  # 24 hours in milliseconds

@@ -21,4 +21,8 @@ public class Doctor {
 
     @Column(name = "profile_picture_name")
     private String profilePictureName; // File name of the profile picture
+    
+    @OneToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

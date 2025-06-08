@@ -61,4 +61,11 @@ public class PatientServiceImpl implements PatientService {
 
         return modelMapper.map(updatedPatient, PatientDTO.class);
     }
+    
+    @Override
+    public PatientDTO findByUserId(int userId) {
+        Patient patient = patientRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Patient not found for user ID: " + userId));
+        return modelMapper.map(patient, PatientDTO.class);
+    }
 }

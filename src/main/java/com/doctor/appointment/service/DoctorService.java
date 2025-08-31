@@ -11,4 +11,5 @@ public interface DoctorService {
     DoctorDTO save(DoctorCreateDTO doctorCreateDTO);
     void deleteById(int id);
     DoctorDTO update(int doctorId, DoctorCreateDTO doctorCreateDTO);
+    DoctorDTO findByUserId(int userId);
 }

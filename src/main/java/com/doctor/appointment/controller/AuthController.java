@@ -4,7 +4,14 @@ import com.doctor.appointment.config.JwtConfig;
 import com.doctor.appointment.model.DTO.AuthRequest;
 import com.doctor.appointment.model.DTO.AuthResponse;
 import com.doctor.appointment.model.DTO.UserCreateDTO;
+import com.doctor.appointment.model.Doctor;
+import com.doctor.appointment.model.Patient;
+import com.doctor.appointment.model.Receptionist;
+import com.doctor.appointment.model.Role;
 import com.doctor.appointment.model.User;
+import com.doctor.appointment.repository.DoctorRepository;
+import com.doctor.appointment.repository.PatientRepository;
+import com.doctor.appointment.repository.ReceptionistRepository;
 import com.doctor.appointment.service.RegistrationService;
 import com.doctor.appointment.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,13 +37,21 @@ public class AuthController {
     private final JwtConfig jwtConfig;
     private final UserService userService;
     private final RegistrationService registrationService;
+    private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
+    private final ReceptionistRepository receptionistRepository;
     
     public AuthController(AuthenticationManager authenticationManager, JwtConfig jwtConfig, 
-                         UserService userService, RegistrationService registrationService) {
+                         UserService userService, RegistrationService registrationService,
+                         DoctorRepository doctorRepository, PatientRepository patientRepository,
+                         ReceptionistRepository receptionistRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtConfig = jwtConfig;
         this.userService = userService;
         this.registrationService = registrationService;
+        this.doctorRepository = doctorRepository;
+        this.patientRepository = patientRepository;
+        this.receptionistRepository = receptionistRepository;
     }
 
     @Operation(summary = "Login to the system", description = "Authenticates a user and returns a JWT token")
@@ -69,6 +84,24 @@ public class AuthController {
         response.setRole(user.getRole());
         response.setUserId(user.getId());
         
+        // Add role-specific IDs
+        if (user.getRole() == Role.DOCTOR) {
+            Doctor doctor = doctorRepository.findByUser(user).orElse(null);
+            if (doctor != null) {
+                response.setDoctorId(doctor.getId());
+            }
+        } else if (user.getRole() == Role.PATIENT) {
+            Patient patient = patientRepository.findByUser(user).orElse(null);
+            if (patient != null) {
+                response.setPatientId(patient.getId());
+            }
+        } else if (user.getRole() == Role.RECEPTIONIST) {
+            Receptionist receptionist = receptionistRepository.findByUser(user).orElse(null);
+            if (receptionist != null) {
+                response.setReceptionistId(receptionist.getId());
+            }
+        }
+        
         return ResponseEntity.ok(response);
     }
 
@@ -95,6 +128,24 @@ public class AuthController {
         response.setToken(token);
         response.setRole(savedUser.getRole());
         response.setUserId(savedUser.getId());
+        
+        // Add role-specific IDs
+        if (savedUser.getRole() == Role.DOCTOR) {
+            Doctor doctor = doctorRepository.findByUser(savedUser).orElse(null);
+            if (doctor != null) {
+                response.setDoctorId(doctor.getId());
+            }
+        } else if (savedUser.getRole() == Role.PATIENT) {
+            Patient patient = patientRepository.findByUser(savedUser).orElse(null);
+            if (patient != null) {
+                response.setPatientId(patient.getId());
+            }
+        } else if (savedUser.getRole() == Role.RECEPTIONIST) {
+            Receptionist receptionist = receptionistRepository.findByUser(savedUser).orElse(null);
+            if (receptionist != null) {
+                response.setReceptionistId(receptionist.getId());
+            }
+        }
         
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

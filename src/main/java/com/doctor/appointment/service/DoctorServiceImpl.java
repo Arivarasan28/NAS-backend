@@ -1,9 +1,11 @@
 package com.doctor.appointment.service;
 
+import com.doctor.appointment.model.Doctor;
+import com.doctor.appointment.model.User;
 import com.doctor.appointment.model.DTO.DoctorCreateDTO;
 import com.doctor.appointment.model.DTO.DoctorDTO;
-import com.doctor.appointment.model.Doctor;
 import com.doctor.appointment.repository.DoctorRepository;
+import com.doctor.appointment.repository.UserRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,9 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Autowired
     private DoctorRepository doctorRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private ModelMapper modelMapper;
@@ -88,6 +93,19 @@ public class DoctorServiceImpl implements DoctorService {
         return modelMapper.map(updatedDoctor, DoctorDTO.class);
     }
 
+    @Override
+    public DoctorDTO findByUserId(int userId) {
+        // Find the user by ID
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        
+        // Find the doctor associated with this user
+        Doctor doctor = doctorRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("No doctor profile found for user ID: " + userId));
+        
+        return modelMapper.map(doctor, DoctorDTO.class);
+    }
+    
     private String saveProfilePicture(MultipartFile profilePicture) {
         try {
             // Ensure the upload directory exists

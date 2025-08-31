@@ -2,7 +2,9 @@ package com.doctor.appointment.service;
 
 import com.doctor.appointment.model.DTO.AppointmentCreateDTO;
 import com.doctor.appointment.model.DTO.AppointmentDTO;
+import com.doctor.appointment.model.DTO.AppointmentSlotCreateDTO;
 import com.doctor.appointment.model.Appointment;
+import com.doctor.appointment.model.AppointmentStatus;
 import com.doctor.appointment.model.Doctor;
 import com.doctor.appointment.model.Patient;
 import com.doctor.appointment.repository.AppointmentRepository;
@@ -12,7 +14,15 @@ import com.doctor.appointment.repository.PatientRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,24 +54,26 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
-    public Appointment save(AppointmentCreateDTO appointmentCreateDTO) {
+    public AppointmentDTO save(AppointmentCreateDTO appointmentCreateDTO) {
         Appointment appointment = new Appointment();
-        
-        // Find and set the doctor
+        appointment.setAppointmentTime(appointmentCreateDTO.getAppointmentTime());
+        appointment.setStatus(AppointmentStatus.AVAILABLE); // Default to AVAILABLE for new appointments
+
+        // Set doctor
         Doctor doctor = doctorRepository.findById(appointmentCreateDTO.getDoctorId())
                 .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + appointmentCreateDTO.getDoctorId()));
         appointment.setDoctor(doctor);
-        
-        // Find and set the patient
+
+        // Set patient if provided
         Patient patient = patientRepository.findById(appointmentCreateDTO.getPatientId())
-                .orElseThrow(() -> new RuntimeException("Patient not found with id: " + appointmentCreateDTO.getPatientId()));
+                .orElse(null);
         appointment.setPatient(patient);
         
-        // Set other fields
-        appointment.setAppointmentTime(appointmentCreateDTO.getAppointmentTime());
+        // Set reason if provided
         appointment.setReason(appointmentCreateDTO.getReason());
-        
-        return appointmentRepository.save(appointment);
+
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+        return convertToDTO(savedAppointment);
     }
 
     @Override
@@ -81,6 +93,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         dto.setId(appointment.getId());
         dto.setAppointmentTime(appointment.getAppointmentTime());
         dto.setReason(appointment.getReason());
+        dto.setStatus(appointment.getStatus());
         
         // Doctor information
         Doctor doctor = appointment.getDoctor();
@@ -125,6 +138,255 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         Appointment updatedAppointment = appointmentRepository.save(existingAppointment);
 
+        return convertToDTO(updatedAppointment);
+    }
+    
+    @Override
+    public List<AppointmentDTO> findByDoctorId(int doctorId) {
+        // First check if doctor exists
+        boolean doctorExists = doctorRepository.findById(doctorId).isPresent();
+        
+        if (!doctorExists) {
+            // Log the issue but don't throw exception
+            System.out.println("Warning: Doctor not found with id: " + doctorId + ". Returning empty appointment list.");
+            // Return an empty list instead of throwing an exception
+            return new ArrayList<>();
+        }
+        
+        // Find appointments for the doctor
+        return appointmentRepository.findByDoctorId(doctorId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    public List<AppointmentDTO> findByDoctorIdAndDate(int doctorId, String dateString) {
+        // First check if doctor exists
+        boolean doctorExists = doctorRepository.findById(doctorId).isPresent();
+        
+        if (!doctorExists) {
+            // Log the issue but don't throw exception
+            System.out.println("Warning: Doctor not found with id: " + doctorId + ". Returning empty appointment list for date: " + dateString);
+            // Return an empty list instead of throwing an exception
+            return new ArrayList<>();
+        }
+        
+        // Parse the date string to LocalDate
+        LocalDate date = LocalDate.parse(dateString, DateTimeFormatter.ISO_DATE);
+        
+        // Calculate start and end of the day
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.plusDays(1).atStartOfDay().minusSeconds(1);
+        
+        // Find appointments for the doctor on the specified date
+        return appointmentRepository.findByDoctorIdAndAppointmentTimeBetween(doctorId, startOfDay, endOfDay).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    public AppointmentDTO updateStatus(int appointmentId, AppointmentStatus status) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
+        
+        // Update the status
+        appointment.setStatus(status);
+        
+        // Save the updated appointment
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+        
+        return convertToDTO(updatedAppointment);
+    }
+    
+    @Override
+    public List<AppointmentDTO> createAppointmentSlots(AppointmentSlotCreateDTO slotCreateDTO) {
+        try {
+            // First check if doctor exists
+            Optional<Doctor> doctorOptional = doctorRepository.findById(slotCreateDTO.getDoctorId());
+            
+            if (!doctorOptional.isPresent()) {
+                // Log the error and throw a more descriptive exception
+                String errorMsg = "Doctor not found with id: " + slotCreateDTO.getDoctorId();
+                System.out.println("Error creating appointment slots: " + errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+            
+            Doctor doctor = doctorOptional.get();
+            
+            // Parse the date
+            LocalDate date = LocalDate.parse(slotCreateDTO.getDate(), DateTimeFormatter.ISO_DATE);
+            
+            // Variables to store the parsed time values
+            LocalTime startTime;
+            LocalTime endTime;
+            
+            // Parse start and end times from ISO format timestamps with timezone
+            try {
+                // Try to parse as ZonedDateTime first (handles formats with Z or timezone offset)
+                ZonedDateTime startZonedDateTime = ZonedDateTime.parse(slotCreateDTO.getStartTime());
+                ZonedDateTime endZonedDateTime = ZonedDateTime.parse(slotCreateDTO.getEndTime());
+                
+                // Extract just the time part
+                startTime = startZonedDateTime.toLocalDateTime().toLocalTime();
+                endTime = endZonedDateTime.toLocalDateTime().toLocalTime();
+            } catch (DateTimeParseException e) {
+                // Fallback to LocalDateTime parsing if ZonedDateTime fails
+                try {
+                    LocalDateTime startDateTime = LocalDateTime.parse(slotCreateDTO.getStartTime());
+                    LocalDateTime endDateTime = LocalDateTime.parse(slotCreateDTO.getEndTime());
+                    
+                    // Extract just the time part
+                    startTime = startDateTime.toLocalTime();
+                    endTime = endDateTime.toLocalTime();
+                } catch (DateTimeParseException e2) {
+                    throw new IllegalArgumentException("Invalid date/time format. Expected ISO format like '2025-06-25T09:00:00Z'", e2);
+                }
+            }
+            
+            // Calculate slot duration in minutes
+            int durationMinutes = slotCreateDTO.getDurationMinutes();
+            
+            // Create a list to hold all the appointments
+            List<Appointment> createdAppointments = new ArrayList<>();
+            
+            // Generate appointment slots
+            LocalTime currentSlotStart = startTime;
+            while (currentSlotStart.plusMinutes(durationMinutes).compareTo(endTime) <= 0) {
+                LocalTime currentSlotEnd = currentSlotStart.plusMinutes(durationMinutes);
+                
+                // Create a new appointment slot
+                Appointment slot = new Appointment();
+                slot.setDoctor(doctor);
+                slot.setAppointmentTime(LocalDateTime.of(date, currentSlotStart));
+                slot.setStatus(AppointmentStatus.AVAILABLE); // Set as available by default
+                slot.setReason("Available Appointment Slot");
+                
+                // Save the appointment slot
+                createdAppointments.add(appointmentRepository.save(slot));
+                
+                // Move to the next slot
+                currentSlotStart = currentSlotEnd;
+            }
+            
+            // Convert all created appointments to DTOs and return
+            return createdAppointments.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        } catch (DateTimeParseException e) {
+            // Handle date/time parsing errors
+            throw new RuntimeException("Invalid date or time format: " + e.getMessage(), e);
+        } catch (Exception e) {
+            // Log and rethrow other exceptions
+            System.err.println("Error creating appointment slots: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+    
+    @Override
+    public boolean deleteAvailableSlot(int appointmentId, int doctorId) {
+        // Find the appointment
+        Appointment appointment = appointmentRepository.findById(appointmentId).orElse(null);
+        
+        // Check if appointment exists, belongs to the doctor, and is in AVAILABLE status
+        if (appointment == null) {
+            return false;
+        }
+        
+        if (appointment.getDoctor().getId() != doctorId) {
+            // Appointment doesn't belong to this doctor
+            return false;
+        }
+        
+        if (appointment.getStatus() != AppointmentStatus.AVAILABLE) {
+            // Can only delete available slots, not booked or confirmed ones
+            return false;
+        }
+        
+        // Delete the appointment slot
+        appointmentRepository.deleteById(appointmentId);
+        return true;
+    }
+    
+    @Override
+    public List<AppointmentDTO> getAvailableSlotsByDoctorAndDate(int doctorId, LocalDate date) {
+        try {
+            // Check if doctor exists
+            Optional<Doctor> doctorOptional = doctorRepository.findById(doctorId);
+            
+            if (!doctorOptional.isPresent()) {
+                // Log the issue but don't throw exception
+                System.out.println("Warning: Doctor not found with id: " + doctorId + ". Returning empty appointment list for date: " + date);
+                // Return an empty list instead of throwing an exception
+                return new ArrayList<>();
+            }
+            
+            Doctor doctor = doctorOptional.get();
+            System.out.println("Found doctor: " + doctor.getId() + " - " + doctor.getName());
+            
+            // Calculate start and end of the day
+            LocalDateTime startOfDay = date.atStartOfDay();
+            LocalDateTime endOfDay = date.plusDays(1).atStartOfDay().minusSeconds(1);
+            
+            System.out.println("Searching for slots between: " + startOfDay + " and " + endOfDay);
+            
+            // Find available appointments for the doctor on the specified date
+            List<Appointment> appointments = appointmentRepository.findByDoctorIdAndStatusAndAppointmentTimeBetween(
+                    doctorId, 
+                    AppointmentStatus.AVAILABLE, 
+                    startOfDay, 
+                    endOfDay);
+            
+            System.out.println("Found " + appointments.size() + " available appointments");
+            
+            return appointments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error in getAvailableSlotsByDoctorAndDate: " + e.getMessage());
+            e.printStackTrace();
+            // Return empty list instead of propagating the exception
+            return new ArrayList<>();
+        }
+    }
+    
+    @Override
+    public List<AppointmentDTO> findByPatientId(int patientId) {
+        // First check if the patient exists
+        patientRepository.findById(patientId)
+                .orElseThrow(() -> new RuntimeException("Patient not found with id: " + patientId));
+        
+        // Find all appointments for this patient
+        List<Appointment> appointments = appointmentRepository.findByPatientId(patientId);
+        
+        // Convert all entities to DTOs
+        return appointments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    public AppointmentDTO bookAppointment(int appointmentId, int patientId) {
+        // Find the appointment slot
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment slot not found: " + appointmentId));
+        
+        // Check if the slot is available
+        if (appointment.getStatus() != AppointmentStatus.AVAILABLE) {
+            throw new RuntimeException("This appointment slot is not available for booking");
+        }
+        
+        // Find the patient
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new RuntimeException("Patient not found with id: " + patientId));
+        
+        // Update the appointment
+        appointment.setPatient(patient);
+        appointment.setStatus(AppointmentStatus.BOOKED);
+        
+        // Save the updated appointment
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+        
         return convertToDTO(updatedAppointment);
     }
 }

@@ -1,5 +1,6 @@
 package com.doctor.appointment.model.DTO;
 
+import com.doctor.appointment.model.AppointmentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,4 +24,5 @@ public class AppointmentDTO {
     
     private LocalDateTime appointmentTime;
     private String reason;
+    private AppointmentStatus status;
 }

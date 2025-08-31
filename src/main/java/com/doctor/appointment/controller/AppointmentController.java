@@ -163,6 +163,60 @@ public class AppointmentController {
                     ));
         }
     }
+
+    // Alias 1: Return all slots (all statuses) for a doctor and date under a 'slots' path
+    @Operation(summary = "Get all slots for a doctor and date",
+            description = "Returns all appointment slots (any status) for a specific doctor on a specific date")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved slots"),
+            @ApiResponse(responseCode = "404", description = "Doctor not found"),
+            @ApiResponse(responseCode = "401", description = "Not authorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
+    @GetMapping("/slots/doctor/{doctorId}/date/{date}")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<?> getAllSlotsByDoctorAndDateAlias1(
+            @PathVariable int doctorId,
+            @PathVariable String date) {
+        try {
+            List<AppointmentDTO> appointments = appointmentService.findByDoctorIdAndDate(doctorId, date);
+            return ResponseEntity.ok(appointments);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "message", "Error fetching slots: " + e.getMessage(),
+                            "error", e.getClass().getName()
+                    ));
+        }
+    }
+
+    // Alias 2: Alternate URL shape ending with '/slots'
+    @Operation(summary = "Get all slots for a doctor and date (alt)",
+            description = "Returns all appointment slots (any status) for a specific doctor on a specific date")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved slots"),
+            @ApiResponse(responseCode = "404", description = "Doctor not found"),
+            @ApiResponse(responseCode = "401", description = "Not authorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
+    @GetMapping("/doctor/{doctorId}/date/{date}/slots")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<?> getAllSlotsByDoctorAndDateAlias2(
+            @PathVariable int doctorId,
+            @PathVariable String date) {
+        try {
+            List<AppointmentDTO> appointments = appointmentService.findByDoctorIdAndDate(doctorId, date);
+            return ResponseEntity.ok(appointments);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "message", "Error fetching slots: " + e.getMessage(),
+                            "error", e.getClass().getName()
+                    ));
+        }
+    }
     
     @Operation(summary = "Update appointment status", description = "Updates the status of an appointment")
     @ApiResponses(value = {

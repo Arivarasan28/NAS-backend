@@ -18,5 +18,8 @@ public class Patient {
     private String email;
     private String phone;
     private String address;
-
+    
+    @OneToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

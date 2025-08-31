@@ -1,9 +1,11 @@
 package com.doctor.appointment.service;
 
+import com.doctor.appointment.model.Doctor;
+import com.doctor.appointment.model.User;
 import com.doctor.appointment.model.DTO.DoctorCreateDTO;
 import com.doctor.appointment.model.DTO.DoctorDTO;
-import com.doctor.appointment.model.Doctor;
 import com.doctor.appointment.repository.DoctorRepository;
+import com.doctor.appointment.repository.UserRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,9 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Autowired
     private DoctorRepository doctorRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private ModelMapper modelMapper;
@@ -66,20 +71,41 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor existingDoctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found: " + doctorId));
 
+        // Update doctor fields
         existingDoctor.setName(doctorCreateDTO.getName());
         existingDoctor.setSpecialization(doctorCreateDTO.getSpecialization());
         existingDoctor.setEmail(doctorCreateDTO.getEmail());
         existingDoctor.setPhone(doctorCreateDTO.getPhone());
 
+        // Handle profile picture if provided
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
             String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
             existingDoctor.setProfilePictureName(fileName);
+        }
+
+        // Make sure we preserve the User relationship
+        // This is critical - without this, the relationship might be lost during update
+        if (existingDoctor.getUser() == null) {
+            throw new RuntimeException("Doctor has no associated user account. Cannot update.");
         }
 
         Doctor updatedDoctor = doctorRepository.save(existingDoctor);
         return modelMapper.map(updatedDoctor, DoctorDTO.class);
     }
 
+    @Override
+    public DoctorDTO findByUserId(int userId) {
+        // Find the user by ID
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        
+        // Find the doctor associated with this user
+        Doctor doctor = doctorRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("No doctor profile found for user ID: " + userId));
+        
+        return modelMapper.map(doctor, DoctorDTO.class);
+    }
+    
     private String saveProfilePicture(MultipartFile profilePicture) {
         try {
             // Ensure the upload directory exists

@@ -21,11 +21,14 @@ public class Appointment {
     private Doctor doctor;
 
     @ManyToOne
-    @JoinColumn(name = "patient_id")
-    private Patient patient;
+    @JoinColumn(name = "patient_id", nullable = true)
+    private Patient patient; // Optional for available slots
 
     private LocalDateTime appointmentTime;
     private String reason;
+    
+    @Enumerated(EnumType.STRING)
+    private AppointmentStatus status = AppointmentStatus.BOOKED; // Default for patient bookings
 
 
-}//testing
+}

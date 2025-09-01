@@ -3,7 +3,8 @@ package com.doctor.appointment.service;
 import com.doctor.appointment.model.DTO.AppointmentCreateDTO;
 import com.doctor.appointment.model.DTO.AppointmentDTO;
 import com.doctor.appointment.model.DTO.AppointmentSlotCreateDTO;
-import com.doctor.appointment.model.AppointmentStatus;
+import com.doctor.appointment.model.DTO.AppointmentStatusHistoryDTO;
+import com.doctor.appointment.model.DTO.AppointmentStatusUpdateDTO;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,7 +24,7 @@ public interface AppointmentService {
     
     List<AppointmentDTO> findByDoctorIdAndDate(int doctorId, String date);
     
-    AppointmentDTO updateStatus(int appointmentId, AppointmentStatus status);
+    AppointmentDTO updateStatus(int appointmentId, AppointmentStatusUpdateDTO statusUpdateDTO);
     
     List<AppointmentDTO> createAppointmentSlots(AppointmentSlotCreateDTO slotCreateDTO);
     
@@ -58,4 +59,9 @@ public interface AppointmentService {
      * @return List of appointments for the patient
      */
     List<AppointmentDTO> findByPatientId(int patientId);
+
+    /**
+     * Get status change history for an appointment
+     */
+    List<AppointmentStatusHistoryDTO> getStatusHistory(int appointmentId);
 }

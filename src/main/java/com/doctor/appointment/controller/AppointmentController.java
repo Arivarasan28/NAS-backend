@@ -5,6 +5,7 @@ import com.doctor.appointment.model.DTO.AppointmentCreateDTO;
 import com.doctor.appointment.model.DTO.AppointmentStatusUpdateDTO;
 import com.doctor.appointment.model.DTO.AppointmentSlotCreateDTO;
 import com.doctor.appointment.service.AppointmentService;
+import com.doctor.appointment.model.DTO.AppointmentStatusHistoryDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -232,7 +233,17 @@ public class AppointmentController {
             @PathVariable int appointmentId,
             @Parameter(description = "Updated status", required = true)
             @Valid @RequestBody AppointmentStatusUpdateDTO statusUpdateDTO) {
-        return ResponseEntity.ok(appointmentService.updateStatus(appointmentId, statusUpdateDTO.getStatus()));
+        return ResponseEntity.ok(appointmentService.updateStatus(appointmentId, statusUpdateDTO));
+    }
+
+    @Operation(summary = "Get appointment status history", description = "Returns audit history of status changes for an appointment")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved status history")
+    })
+    @GetMapping("/{appointmentId}/status/history")
+    public ResponseEntity<List<AppointmentStatusHistoryDTO>> getAppointmentStatusHistory(
+            @PathVariable int appointmentId) {
+        return ResponseEntity.ok(appointmentService.getStatusHistory(appointmentId));
     }
     
     @Operation(summary = "Create appointment slots", description = "Creates multiple appointment slots for a doctor based on start time, end time, and duration")

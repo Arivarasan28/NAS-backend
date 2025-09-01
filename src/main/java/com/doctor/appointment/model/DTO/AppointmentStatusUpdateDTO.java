@@ -13,4 +13,10 @@ public class AppointmentStatusUpdateDTO {
     
     @NotNull(message = "Status cannot be null")
     private AppointmentStatus status;
+
+    // Optional: who triggered this change (e.g., "DOCTOR:12", "PATIENT:34", or username)
+    private String changedBy;
+
+    // Optional note describing the reason for change
+    private String note;
 }

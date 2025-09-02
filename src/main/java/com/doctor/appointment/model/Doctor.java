@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 @AllArgsConstructor
@@ -20,6 +21,9 @@ public class Doctor {
     private String specialization;
     private String email;
     private String phone;
+
+    @Column(name = "consultation_fee", precision = 10, scale = 2)
+    private BigDecimal fee;
 
     @Column(name = "profile_picture_name")
     private String profilePictureName; // File name of the profile picture

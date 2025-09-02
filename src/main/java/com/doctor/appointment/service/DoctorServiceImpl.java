@@ -76,6 +76,7 @@ public class DoctorServiceImpl implements DoctorService {
         existingDoctor.setSpecialization(doctorCreateDTO.getSpecialization());
         existingDoctor.setEmail(doctorCreateDTO.getEmail());
         existingDoctor.setPhone(doctorCreateDTO.getPhone());
+        existingDoctor.setFee(doctorCreateDTO.getFee());
 
         // Handle profile picture if provided
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -12,6 +13,7 @@ import java.math.BigDecimal;
 public class DoctorCreateDTO {
     private String name;
     private String specialization;
+    private List<String> specializationNames; // new, for many-to-many
     private String email;
     private String phone;
     private BigDecimal fee;

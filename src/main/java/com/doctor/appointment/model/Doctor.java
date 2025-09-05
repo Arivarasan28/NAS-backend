@@ -5,6 +5,8 @@ import lombok.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
 @Data
 @AllArgsConstructor
@@ -34,4 +36,13 @@ public class Doctor {
 
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WorkingHour> workingHours = new ArrayList<>();
+
+    // New: Many-to-many relationship to support multiple specializations per doctor
+    @ManyToMany
+    @JoinTable(
+        name = "doctor_specializations",
+        joinColumns = @JoinColumn(name = "doctor_id"),
+        inverseJoinColumns = @JoinColumn(name = "specialization_id")
+    )
+    private Set<Specialization> specializations = new HashSet<>();
 }

@@ -6,6 +6,8 @@ import com.doctor.appointment.model.DTO.DoctorCreateDTO;
 import com.doctor.appointment.model.DTO.DoctorDTO;
 import com.doctor.appointment.repository.DoctorRepository;
 import com.doctor.appointment.repository.UserRepository;
+import com.doctor.appointment.model.Specialization;
+import com.doctor.appointment.repository.SpecializationRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -33,10 +35,13 @@ public class DoctorServiceImpl implements DoctorService {
     @Autowired
     private ModelMapper modelMapper;
 
+    @Autowired
+    private SpecializationRepository specializationRepository;
+
     @Override
     public List<DoctorDTO> findAll() {
         return doctorRepository.findAll().stream()
-                .map(doctor -> modelMapper.map(doctor, DoctorDTO.class))
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -44,20 +49,44 @@ public class DoctorServiceImpl implements DoctorService {
     public DoctorDTO findById(int id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Doctor not found: " + id));
-        return modelMapper.map(doctor, DoctorDTO.class);
+        return toDTO(doctor);
     }
 
     @Override
     public DoctorDTO save(DoctorCreateDTO doctorCreateDTO) {
         Doctor doctor = modelMapper.map(doctorCreateDTO, Doctor.class);
 
+        // Map specializations (many-to-many) if provided
+        if (doctorCreateDTO.getSpecializationNames() != null && !doctorCreateDTO.getSpecializationNames().isEmpty()) {
+            List<Specialization> specs = doctorCreateDTO.getSpecializationNames().stream()
+                    .map(name -> specializationRepository.findByNameIgnoreCase(name)
+                            .orElseThrow(() -> new RuntimeException("Specialization not found: " + name)))
+                    .collect(Collectors.toList());
+            doctor.getSpecializations().clear();
+            doctor.getSpecializations().addAll(specs);
+            // Keep legacy field for compatibility (first selected)
+            doctor.setSpecialization(doctorCreateDTO.getSpecializationNames().get(0));
+        }
+
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
             String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
             doctor.setProfilePictureName(fileName);
         }
 
+        // Link to existing user account by username if provided
+        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank()) {
+            User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
+            doctor.setUser(linkedUser);
+        }
+
+        // Default appointment duration to 15 minutes if not provided
+        if (doctor.getAppointmentDurationMinutes() == null) {
+            doctor.setAppointmentDurationMinutes(15);
+        }
+
         Doctor savedDoctor = doctorRepository.save(doctor);
-        return modelMapper.map(savedDoctor, DoctorDTO.class);
+        return toDTO(savedDoctor);
     }
 
     @Override
@@ -73,14 +102,38 @@ public class DoctorServiceImpl implements DoctorService {
 
         // Update doctor fields
         existingDoctor.setName(doctorCreateDTO.getName());
-        existingDoctor.setSpecialization(doctorCreateDTO.getSpecialization());
+        // If list provided, map many-to-many and keep legacy field in sync; else use single string
+        if (doctorCreateDTO.getSpecializationNames() != null && !doctorCreateDTO.getSpecializationNames().isEmpty()) {
+            List<Specialization> specs = doctorCreateDTO.getSpecializationNames().stream()
+                    .map(name -> specializationRepository.findByNameIgnoreCase(name)
+                            .orElseThrow(() -> new RuntimeException("Specialization not found: " + name)))
+                    .collect(Collectors.toList());
+            existingDoctor.getSpecializations().clear();
+            existingDoctor.getSpecializations().addAll(specs);
+            existingDoctor.setSpecialization(doctorCreateDTO.getSpecializationNames().get(0));
+        } else {
+            existingDoctor.setSpecialization(doctorCreateDTO.getSpecialization());
+        }
         existingDoctor.setEmail(doctorCreateDTO.getEmail());
         existingDoctor.setPhone(doctorCreateDTO.getPhone());
+        existingDoctor.setFee(doctorCreateDTO.getFee());
+
+        // Map appointment duration if provided (can be null to keep existing)
+        if (doctorCreateDTO.getAppointmentDurationMinutes() != null) {
+            existingDoctor.setAppointmentDurationMinutes(doctorCreateDTO.getAppointmentDurationMinutes());
+        }
 
         // Handle profile picture if provided
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
             String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
             existingDoctor.setProfilePictureName(fileName);
+        }
+
+        // Optionally re-link to a different user by username (admin/receptionist action)
+        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank()) {
+            User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
+            existingDoctor.setUser(linkedUser);
         }
 
         // Make sure we preserve the User relationship
@@ -90,7 +143,7 @@ public class DoctorServiceImpl implements DoctorService {
         }
 
         Doctor updatedDoctor = doctorRepository.save(existingDoctor);
-        return modelMapper.map(updatedDoctor, DoctorDTO.class);
+        return toDTO(updatedDoctor);
     }
 
     @Override
@@ -125,5 +178,17 @@ public class DoctorServiceImpl implements DoctorService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to save profile picture", e);
         }
+    }
+
+    private DoctorDTO toDTO(Doctor doctor) {
+        DoctorDTO dto = modelMapper.map(doctor, DoctorDTO.class);
+        if (doctor.getSpecializations() != null) {
+            dto.setSpecializations(
+                doctor.getSpecializations().stream()
+                        .map(Specialization::getName)
+                        .collect(Collectors.toList())
+            );
+        }
+        return dto;
     }
 }

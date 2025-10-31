@@ -3,11 +3,15 @@ package com.doctor.appointment.service;
 import com.doctor.appointment.model.DTO.AppointmentCreateDTO;
 import com.doctor.appointment.model.DTO.AppointmentDTO;
 import com.doctor.appointment.model.DTO.AppointmentSlotCreateDTO;
+import com.doctor.appointment.model.DTO.AppointmentStatusHistoryDTO;
+import com.doctor.appointment.model.DTO.AppointmentStatusUpdateDTO;
 import com.doctor.appointment.model.Appointment;
 import com.doctor.appointment.model.AppointmentStatus;
+import com.doctor.appointment.model.AppointmentStatusHistory;
 import com.doctor.appointment.model.Doctor;
 import com.doctor.appointment.model.Patient;
 import com.doctor.appointment.repository.AppointmentRepository;
+import com.doctor.appointment.repository.AppointmentStatusHistoryRepository;
 import com.doctor.appointment.repository.DoctorRepository;
 import com.doctor.appointment.repository.PatientRepository;
 // ModelMapper not needed anymore as we use custom mapping
@@ -21,7 +25,10 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -36,6 +43,12 @@ public class AppointmentServiceImpl implements AppointmentService {
     
     @Autowired
     private PatientRepository patientRepository;
+    
+    @Autowired
+    private AppointmentStatusHistoryRepository appointmentStatusHistoryRepository;
+    
+    @Autowired
+    private DoctorLeaveService doctorLeaveService;
 
     // ModelMapper removed as we use custom mapping
 
@@ -43,6 +56,24 @@ public class AppointmentServiceImpl implements AppointmentService {
     public List<AppointmentDTO> findAll() {
         return appointmentRepository.findAll().stream()
                 .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AppointmentStatusHistoryDTO> getStatusHistory(int appointmentId) {
+        // Ensure appointment exists
+        appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
+        return appointmentStatusHistoryRepository
+                .findByAppointmentIdOrderByChangedAtAsc(appointmentId)
+                .stream()
+                .map(h -> new AppointmentStatusHistoryDTO(
+                        h.getFromStatus(),
+                        h.getToStatus(),
+                        h.getChangedAt(),
+                        h.getChangedBy(),
+                        h.getNote()
+                ))
                 .collect(Collectors.toList());
     }
 
@@ -185,17 +216,46 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
     
     @Override
-    public AppointmentDTO updateStatus(int appointmentId, AppointmentStatus status) {
+    public AppointmentDTO updateStatus(int appointmentId, AppointmentStatusUpdateDTO statusUpdateDTO) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
-        
-        // Update the status
-        appointment.setStatus(status);
-        
-        // Save the updated appointment
-        Appointment updatedAppointment = appointmentRepository.save(appointment);
-        
-        return convertToDTO(updatedAppointment);
+
+        AppointmentStatus fromStatus = appointment.getStatus();
+        AppointmentStatus toStatus = statusUpdateDTO.getStatus();
+
+        // Define allowed transitions
+        Map<AppointmentStatus, List<AppointmentStatus>> allowed = new EnumMap<>(AppointmentStatus.class);
+        allowed.put(AppointmentStatus.AVAILABLE, Arrays.asList(AppointmentStatus.BOOKED));
+        allowed.put(AppointmentStatus.BOOKED, Arrays.asList(AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED));
+        allowed.put(AppointmentStatus.CONFIRMED, Arrays.asList(AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED));
+        allowed.put(AppointmentStatus.CANCELLED, List.of());
+        allowed.put(AppointmentStatus.COMPLETED, List.of());
+
+        // Validate transition (allow idempotent: from == to)
+        if (fromStatus != toStatus && (!allowed.containsKey(fromStatus) || !allowed.get(fromStatus).contains(toStatus))) {
+            throw new RuntimeException("Invalid status transition from " + fromStatus + " to " + toStatus);
+        }
+
+        // Update the status only if changed
+        if (fromStatus != toStatus) {
+            appointment.setStatus(toStatus);
+            Appointment saved = appointmentRepository.save(appointment);
+
+            // Write history record
+            AppointmentStatusHistory history = new AppointmentStatusHistory();
+            history.setAppointment(saved);
+            history.setFromStatus(fromStatus);
+            history.setToStatus(toStatus);
+            history.setChangedAt(java.time.LocalDateTime.now());
+            history.setChangedBy(statusUpdateDTO.getChangedBy());
+            history.setNote(statusUpdateDTO.getNote());
+            appointmentStatusHistoryRepository.save(history);
+
+            return convertToDTO(saved);
+        }
+
+        // No change, but still return DTO
+        return convertToDTO(appointment);
     }
     
     @Override
@@ -215,6 +275,11 @@ public class AppointmentServiceImpl implements AppointmentService {
             
             // Parse the date
             LocalDate date = LocalDate.parse(slotCreateDTO.getDate(), DateTimeFormatter.ISO_DATE);
+            
+            // Check if doctor is on leave for this date
+            if (doctorLeaveService.isDoctorOnLeave(doctor.getId(), date)) {
+                throw new RuntimeException("Cannot create appointment slots. Doctor is on leave for the selected date: " + date);
+            }
             
             // Variables to store the parsed time values
             LocalTime startTime;
@@ -376,17 +441,34 @@ public class AppointmentServiceImpl implements AppointmentService {
             throw new RuntimeException("This appointment slot is not available for booking");
         }
         
+        // Check if doctor is on leave for the appointment date
+        LocalDate appointmentDate = appointment.getAppointmentTime().toLocalDate();
+        if (doctorLeaveService.isDoctorOnLeave(appointment.getDoctor().getId(), appointmentDate)) {
+            throw new RuntimeException("Cannot book appointment. Doctor is on leave for the selected date: " + appointmentDate);
+        }
+        
         // Find the patient
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new RuntimeException("Patient not found with id: " + patientId));
         
         // Update the appointment
+        AppointmentStatus fromStatus = appointment.getStatus();
         appointment.setPatient(patient);
         appointment.setStatus(AppointmentStatus.BOOKED);
         
         // Save the updated appointment
         Appointment updatedAppointment = appointmentRepository.save(appointment);
-        
+
+        // Write history record for booking
+        AppointmentStatusHistory history = new AppointmentStatusHistory();
+        history.setAppointment(updatedAppointment);
+        history.setFromStatus(fromStatus);
+        history.setToStatus(AppointmentStatus.BOOKED);
+        history.setChangedAt(java.time.LocalDateTime.now());
+        history.setChangedBy("PATIENT:" + patientId);
+        history.setNote("Booked appointment");
+        appointmentStatusHistoryRepository.save(history);
+
         return convertToDTO(updatedAppointment);
     }
 }

@@ -45,4 +45,8 @@ public class Doctor {
         inverseJoinColumns = @JoinColumn(name = "specialization_id")
     )
     private Set<Specialization> specializations = new HashSet<>();
+
+    // Appointment duration in minutes for each slot (default 15 minutes)
+    @Column(name = "appointment_duration_minutes")
+    private Integer appointmentDurationMinutes = 15;
 }

@@ -4,7 +4,9 @@ import com.doctor.appointment.model.DTO.AppointmentDTO;
 import com.doctor.appointment.model.DTO.AppointmentCreateDTO;
 import com.doctor.appointment.model.DTO.AppointmentStatusUpdateDTO;
 import com.doctor.appointment.model.DTO.AppointmentSlotCreateDTO;
+import com.doctor.appointment.model.DTO.AvailableSlotDTO;
 import com.doctor.appointment.service.AppointmentService;
+import com.doctor.appointment.service.AppointmentSlotGenerationService;
 import com.doctor.appointment.model.DTO.AppointmentStatusHistoryDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,6 +39,7 @@ public class AppointmentController {
     private static final Logger logger = LoggerFactory.getLogger(AppointmentController.class);
 
     private final AppointmentService appointmentService;
+    private final AppointmentSlotGenerationService slotGenerationService;
 
     @Operation(summary = "Get all appointments", description = "Returns a list of all appointments")
     @ApiResponses(value = {
@@ -381,6 +384,109 @@ public class AppointmentController {
             return ResponseEntity.ok(bookedAppointment);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+    
+    // ==================== SMART SLOT GENERATION ENDPOINTS ====================
+    
+    @Operation(summary = "Generate available slots for a doctor on a specific date",
+            description = "Intelligently generates available appointment slots based on working hours, leaves, and existing appointments")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully generated available slots"),
+            @ApiResponse(responseCode = "404", description = "Doctor not found")
+    })
+    @GetMapping("/slots/smart/doctor/{doctorId}/date/{date}")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<?> getSmartAvailableSlots(
+            @PathVariable int doctorId,
+            @PathVariable String date) {
+        
+        try {
+            LocalDate localDate = LocalDate.parse(date);
+            List<AvailableSlotDTO> availableSlots = slotGenerationService.generateAvailableSlots(doctorId, localDate);
+            
+            // Filter to return only available slots
+            List<AvailableSlotDTO> onlyAvailable = availableSlots.stream()
+                    .filter(AvailableSlotDTO::isAvailable)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            return ResponseEntity.ok(onlyAvailable);
+        } catch (Exception e) {
+            logger.error("Error generating smart slots for doctor {} on date {}", doctorId, date, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "message", "Error generating available slots: " + e.getMessage(),
+                            "error", e.getClass().getName()
+                    ));
+        }
+    }
+    
+    @Operation(summary = "Generate available slots for a date range",
+            description = "Generates available appointment slots for multiple dates")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully generated available slots"),
+            @ApiResponse(responseCode = "404", description = "Doctor not found")
+    })
+    @GetMapping("/slots/smart/doctor/{doctorId}/range")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<?> getSmartAvailableSlotsForRange(
+            @PathVariable int doctorId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        
+        try {
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end = LocalDate.parse(endDate);
+            
+            List<AvailableSlotDTO> availableSlots = slotGenerationService
+                    .generateAvailableSlotsForDateRange(doctorId, start, end);
+            
+            // Filter to return only available slots
+            List<AvailableSlotDTO> onlyAvailable = availableSlots.stream()
+                    .filter(AvailableSlotDTO::isAvailable)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            return ResponseEntity.ok(onlyAvailable);
+        } catch (Exception e) {
+            logger.error("Error generating smart slots for doctor {} for date range", doctorId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "message", "Error generating available slots: " + e.getMessage(),
+                            "error", e.getClass().getName()
+                    ));
+        }
+    }
+    
+    @Operation(summary = "Auto-generate and create appointment slots based on working hours",
+            description = "Automatically creates appointment slots for a doctor based on their working hours for a specific date")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Successfully created appointment slots"),
+            @ApiResponse(responseCode = "404", description = "Doctor not found")
+    })
+    @PostMapping("/slots/auto-generate/doctor/{doctorId}/date/{date}")
+    @PreAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
+    public ResponseEntity<?> autoGenerateSlots(
+            @PathVariable int doctorId,
+            @PathVariable String date) {
+        
+        try {
+            LocalDate localDate = LocalDate.parse(date);
+            List<AppointmentDTO> createdSlots = slotGenerationService.autoGenerateAndCreateSlots(doctorId, localDate);
+            
+            logger.info("Auto-generated {} slots for doctor {} on date {}", createdSlots.size(), doctorId, date);
+            
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of(
+                            "message", "Successfully created " + createdSlots.size() + " appointment slots",
+                            "slots", createdSlots
+                    ));
+        } catch (Exception e) {
+            logger.error("Error auto-generating slots for doctor {} on date {}", doctorId, date, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "message", "Error auto-generating slots: " + e.getMessage(),
+                            "error", e.getClass().getName()
+                    ));
         }
     }
 }

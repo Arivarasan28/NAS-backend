@@ -17,5 +17,6 @@ public class DoctorDTO {
     private String email;
     private String phone;
     private BigDecimal fee;
+    private Integer appointmentDurationMinutes;
     private String profilePictureName; // File name of the profile picture
 }

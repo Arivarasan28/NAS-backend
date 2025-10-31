@@ -73,6 +73,18 @@ public class DoctorServiceImpl implements DoctorService {
             doctor.setProfilePictureName(fileName);
         }
 
+        // Link to existing user account by username if provided
+        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank()) {
+            User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
+            doctor.setUser(linkedUser);
+        }
+
+        // Default appointment duration to 15 minutes if not provided
+        if (doctor.getAppointmentDurationMinutes() == null) {
+            doctor.setAppointmentDurationMinutes(15);
+        }
+
         Doctor savedDoctor = doctorRepository.save(doctor);
         return toDTO(savedDoctor);
     }
@@ -106,10 +118,22 @@ public class DoctorServiceImpl implements DoctorService {
         existingDoctor.setPhone(doctorCreateDTO.getPhone());
         existingDoctor.setFee(doctorCreateDTO.getFee());
 
+        // Map appointment duration if provided (can be null to keep existing)
+        if (doctorCreateDTO.getAppointmentDurationMinutes() != null) {
+            existingDoctor.setAppointmentDurationMinutes(doctorCreateDTO.getAppointmentDurationMinutes());
+        }
+
         // Handle profile picture if provided
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
             String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
             existingDoctor.setProfilePictureName(fileName);
+        }
+
+        // Optionally re-link to a different user by username (admin/receptionist action)
+        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank()) {
+            User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
+            existingDoctor.setUser(linkedUser);
         }
 
         // Make sure we preserve the User relationship

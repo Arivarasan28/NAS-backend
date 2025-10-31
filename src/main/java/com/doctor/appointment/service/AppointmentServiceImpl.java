@@ -46,6 +46,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     
     @Autowired
     private AppointmentStatusHistoryRepository appointmentStatusHistoryRepository;
+    
+    @Autowired
+    private DoctorLeaveService doctorLeaveService;
 
     // ModelMapper removed as we use custom mapping
 
@@ -273,6 +276,11 @@ public class AppointmentServiceImpl implements AppointmentService {
             // Parse the date
             LocalDate date = LocalDate.parse(slotCreateDTO.getDate(), DateTimeFormatter.ISO_DATE);
             
+            // Check if doctor is on leave for this date
+            if (doctorLeaveService.isDoctorOnLeave(doctor.getId(), date)) {
+                throw new RuntimeException("Cannot create appointment slots. Doctor is on leave for the selected date: " + date);
+            }
+            
             // Variables to store the parsed time values
             LocalTime startTime;
             LocalTime endTime;
@@ -431,6 +439,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Check if the slot is available
         if (appointment.getStatus() != AppointmentStatus.AVAILABLE) {
             throw new RuntimeException("This appointment slot is not available for booking");
+        }
+        
+        // Check if doctor is on leave for the appointment date
+        LocalDate appointmentDate = appointment.getAppointmentTime().toLocalDate();
+        if (doctorLeaveService.isDoctorOnLeave(appointment.getDoctor().getId(), appointmentDate)) {
+            throw new RuntimeException("Cannot book appointment. Doctor is on leave for the selected date: " + appointmentDate);
         }
         
         // Find the patient

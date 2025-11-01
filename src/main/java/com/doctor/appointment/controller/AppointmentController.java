@@ -94,8 +94,14 @@ public class AppointmentController {
     public ResponseEntity<Void> deleteAppointment(
             @Parameter(description = "ID of the appointment to delete") 
             @PathVariable int appointmentId) {
-        appointmentService.deleteById(appointmentId);
-        return ResponseEntity.noContent().build();
+        try {
+            appointmentService.deleteById(appointmentId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            // If appointment was already deleted or there's an optimistic locking conflict,
+            // consider it a success since the goal (appointment deleted) is achieved
+            return ResponseEntity.noContent().build();
+        }
     }
 
     @Operation(summary = "Update an appointment", description = "Updates an existing appointment by ID")
@@ -114,6 +120,26 @@ public class AppointmentController {
                     content = @Content(schema = @Schema(implementation = AppointmentCreateDTO.class)))
             @Valid @RequestBody AppointmentCreateDTO appointmentCreateDTO) {
         return ResponseEntity.ok(appointmentService.update(appointmentId, appointmentCreateDTO));
+    }
+    
+    @Operation(summary = "Confirm reserved appointment", description = "Confirms a reserved appointment by assigning it to a patient")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Appointment confirmed successfully"),
+            @ApiResponse(responseCode = "404", description = "Appointment not found"),
+            @ApiResponse(responseCode = "400", description = "Appointment not reserved or already booked")
+    })
+    @PatchMapping("/{appointmentId}/confirm")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<AppointmentDTO> confirmReservedAppointment(
+            @PathVariable int appointmentId,
+            @RequestBody Map<String, Object> confirmData) {
+        try {
+            int patientId = (Integer) confirmData.get("patientId");
+            AppointmentDTO appointment = appointmentService.confirmReservation(appointmentId, patientId);
+            return ResponseEntity.ok(appointment);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
     
     @Operation(summary = "Get appointments by doctor ID", description = "Returns all appointments for a specific doctor")

@@ -212,10 +212,14 @@ public class AppointmentSlotGenerationServiceImpl implements AppointmentSlotGene
     
     /**
      * Check if two time ranges overlap
+     * Two appointments overlap only if one starts before the other ends
+     * Adjacent appointments (one ends when other starts) do NOT overlap
      */
     private boolean isTimeOverlapping(LocalDateTime start1, LocalDateTime end1, 
                                      LocalDateTime start2, LocalDateTime end2) {
-        return !end1.isBefore(start2) && !start1.isAfter(end2);
+        // Overlap occurs if: start1 < end2 AND end1 > start2
+        // This excludes cases where end1 == start2 (adjacent appointments)
+        return start1.isBefore(end2) && end1.isAfter(start2);
     }
     
     /**

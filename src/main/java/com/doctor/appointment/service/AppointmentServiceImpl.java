@@ -471,4 +471,51 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         return convertToDTO(updatedAppointment);
     }
+    
+    @Override
+    public AppointmentDTO confirmReservation(int appointmentId, int patientId) {
+        // Get the appointment
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
+        
+        // Verify it's reserved by this patient
+        if (appointment.getReservedByPatientId() == null) {
+            throw new RuntimeException("Appointment is not reserved");
+        }
+        
+        if (!appointment.getReservedByPatientId().equals(patientId)) {
+            throw new RuntimeException("Appointment is reserved by another patient");
+        }
+        
+        // Check if reservation has expired
+        if (appointment.getReservationExpiresAt() != null && 
+            appointment.getReservationExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Reservation has expired");
+        }
+        
+        // Get the patient
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new RuntimeException("Patient not found: " + patientId));
+        
+        // Confirm the booking
+        AppointmentStatus fromStatus = appointment.getStatus();
+        appointment.setPatient(patient);
+        appointment.setStatus(AppointmentStatus.BOOKED);
+        appointment.setReservedByPatientId(null);
+        appointment.setReservationExpiresAt(null);
+        
+        Appointment confirmedAppointment = appointmentRepository.save(appointment);
+        
+        // Write history record
+        AppointmentStatusHistory history = new AppointmentStatusHistory();
+        history.setAppointment(confirmedAppointment);
+        history.setFromStatus(fromStatus);
+        history.setToStatus(AppointmentStatus.BOOKED);
+        history.setChangedAt(LocalDateTime.now());
+        history.setChangedBy("PATIENT:" + patientId);
+        history.setNote("Confirmed reserved appointment");
+        appointmentStatusHistoryRepository.save(history);
+        
+        return convertToDTO(confirmedAppointment);
+    }
 }

@@ -64,4 +64,12 @@ public interface AppointmentService {
      * Get status change history for an appointment
      */
     List<AppointmentStatusHistoryDTO> getStatusHistory(int appointmentId);
+    
+    /**
+     * Confirm a reserved appointment by assigning it to a patient
+     * @param appointmentId The ID of the reserved appointment
+     * @param patientId The ID of the patient confirming the reservation
+     * @return The confirmed appointment
+     */
+    AppointmentDTO confirmReservation(int appointmentId, int patientId);
 }

@@ -31,3 +31,17 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### macOS ###
+.DS_Store
+
+### Logs ###
+logs/
+*.log
+
+### Environment files ###
+.env
+.env.*
+
+### Uploads ###
+uploads/

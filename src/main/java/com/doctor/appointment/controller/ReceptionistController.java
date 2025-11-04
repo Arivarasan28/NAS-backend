@@ -3,6 +3,7 @@ package com.doctor.appointment.controller;
 import com.doctor.appointment.model.DTO.ReceptionistCreateDTO;
 import com.doctor.appointment.model.DTO.ReceptionistDTO;
 import com.doctor.appointment.model.Receptionist;
+import com.doctor.appointment.model.User;
 import com.doctor.appointment.service.ReceptionistService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -64,11 +65,18 @@ public class ReceptionistController {
             @Parameter(description = "Receptionist details", required = true,
                     content = @Content(schema = @Schema(implementation = ReceptionistCreateDTO.class)))
             @Valid @RequestBody ReceptionistCreateDTO receptionistCreateDTO) {
-        // Convert DTO to entity
+        // Note: This endpoint should ideally use the registration flow to create User first
+        // For now, assuming User is created separately and we're just linking
         Receptionist receptionist = new Receptionist();
-        receptionist.setName(receptionistCreateDTO.getName());
-        receptionist.setEmail(receptionistCreateDTO.getEmail());
-        receptionist.setPhone(receptionistCreateDTO.getPhone());
+        
+        // Create User object with common attributes
+        User user = new User();
+        user.setName(receptionistCreateDTO.getName());
+        user.setEmail(receptionistCreateDTO.getEmail());
+        user.setPhone(receptionistCreateDTO.getPhone());
+        receptionist.setUser(user);
+        
+        // Set receptionist-specific attributes
         receptionist.setDepartment(receptionistCreateDTO.getDepartment());
         
         Receptionist savedReceptionist = receptionistService.save(receptionist);
@@ -93,9 +101,15 @@ public class ReceptionistController {
             @Valid @RequestBody ReceptionistCreateDTO receptionistCreateDTO) {
         // Convert DTO to entity
         Receptionist receptionist = new Receptionist();
-        receptionist.setName(receptionistCreateDTO.getName());
-        receptionist.setEmail(receptionistCreateDTO.getEmail());
-        receptionist.setPhone(receptionistCreateDTO.getPhone());
+        
+        // Create User object with common attributes
+        User user = new User();
+        user.setName(receptionistCreateDTO.getName());
+        user.setEmail(receptionistCreateDTO.getEmail());
+        user.setPhone(receptionistCreateDTO.getPhone());
+        receptionist.setUser(user);
+        
+        // Set receptionist-specific attributes
         receptionist.setDepartment(receptionistCreateDTO.getDepartment());
         
         return ResponseEntity.ok(receptionistService.update(id, receptionist));

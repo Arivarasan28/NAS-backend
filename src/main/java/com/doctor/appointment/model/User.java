@@ -26,4 +26,14 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+    
+    // Common attributes for all users
+    @Column(nullable = false)
+    private String name;
+    
+    @Column(nullable = false)
+    private String phone;
+    
+    @Column(name = "profile_picture_url")
+    private String profilePictureUrl;
 }

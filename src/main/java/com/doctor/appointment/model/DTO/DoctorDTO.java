@@ -11,12 +11,14 @@ import java.util.List;
 @NoArgsConstructor
 public class DoctorDTO {
     private int id;
+    // Common user attributes (from User table)
     private String name;
-    private String specialization;
-    private List<String> specializations; // new, derived from relation
     private String email;
     private String phone;
+    private String profilePictureUrl;
+    // Doctor-specific attributes
+    private String specialization; // Legacy field
+    private List<String> specializations; // Multiple specializations
     private BigDecimal fee;
     private Integer appointmentDurationMinutes;
-    private String profilePictureName; // File name of the profile picture
 }

@@ -167,7 +167,7 @@ public class DoctorLeaveServiceImpl implements DoctorLeaveService {
         DoctorLeaveDTO dto = new DoctorLeaveDTO();
         dto.setId(leave.getId());
         dto.setDoctorId(leave.getDoctor().getId());
-        dto.setDoctorName(leave.getDoctor().getName());
+        dto.setDoctorName(leave.getDoctor().getUser() != null ? leave.getDoctor().getUser().getName() : "Unknown");
         dto.setLeaveType(leave.getLeaveType());
         dto.setStartDate(leave.getStartDate());
         dto.setEndDate(leave.getEndDate());

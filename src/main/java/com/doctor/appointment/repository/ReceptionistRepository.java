@@ -10,5 +10,5 @@ import java.util.Optional;
 @Repository
 public interface ReceptionistRepository extends JpaRepository<Receptionist, Integer> {
     Optional<Receptionist> findByUser(User user);
-    Optional<Receptionist> findByEmail(String email);
+    Optional<Receptionist> findByUserEmail(String email); // Changed: email is now in User entity
 }

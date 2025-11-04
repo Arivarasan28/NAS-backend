@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PatientRepository extends JpaRepository<Patient, Integer> {
     Optional<Patient> findByUser(User user);
-    Optional<Patient> findByEmail(String email);
+    Optional<Patient> findByUserEmail(String email); // Changed: email is now in User entity
     
     // Find patient by user id using JPQL query
     @Query("SELECT p FROM Patient p WHERE p.user.id = :userId")

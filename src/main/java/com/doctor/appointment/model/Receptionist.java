@@ -14,12 +14,11 @@ public class Receptionist {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    private String name;
-    private String email;
-    private String phone;
-    private String department;
-    
+    // Link to User table (contains common attributes: name, email, phone, profilePictureUrl)
     @OneToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
+    
+    // Receptionist-specific attributes
+    private String department;
 }

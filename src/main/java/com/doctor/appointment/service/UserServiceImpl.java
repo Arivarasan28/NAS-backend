@@ -50,6 +50,15 @@ public class UserServiceImpl implements UserService {
     public User save(UserCreateDTO theUserCreateDTO) {
         User user = modelMapper.map(theUserCreateDTO, User.class);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        
+        // Set default values for required fields if not provided
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getUsername()); // Default to username
+        }
+        if (user.getPhone() == null || user.getPhone().isBlank()) {
+            user.setPhone("0000000000"); // Default phone
+        }
+        
         return userRepository.save(user);
     }
 

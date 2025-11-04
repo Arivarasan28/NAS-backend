@@ -47,7 +47,12 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = new Payment();
         payment.setAppointment(appointment);
         payment.setPaymentMethod(paymentCreateDTO.getPaymentMethod());
-        payment.setAmount(paymentCreateDTO.getAmount());
+        // Always use server-side fee from appointment to prevent tampering
+        if (appointment.getAppointmentFee() == null && appointment.getDoctor() != null) {
+            appointment.setAppointmentFee(appointment.getDoctor().getFee());
+            appointmentRepository.save(appointment);
+        }
+        payment.setAmount(appointment.getAppointmentFee());
         payment.setCardDetails(paymentCreateDTO.getCardDetails());
         payment.setNotes(paymentCreateDTO.getNotes());
         
@@ -167,7 +172,12 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = new Payment();
         payment.setAppointment(bookedAppointment);
         payment.setPaymentMethod(bookingWithPaymentDTO.getPaymentMethod());
-        payment.setAmount(bookingWithPaymentDTO.getAmount());
+        // Always use server-side fee from appointment to prevent tampering
+        if (bookedAppointment.getAppointmentFee() == null && bookedAppointment.getDoctor() != null) {
+            bookedAppointment.setAppointmentFee(bookedAppointment.getDoctor().getFee());
+            appointmentRepository.save(bookedAppointment);
+        }
+        payment.setAmount(bookedAppointment.getAppointmentFee());
         payment.setCardDetails(bookingWithPaymentDTO.getCardDetails());
         payment.setNotes(bookingWithPaymentDTO.getNotes());
         payment.setTransactionId(generateTransactionId());
@@ -256,6 +266,26 @@ public class PaymentServiceImpl implements PaymentService {
     }
     
     private AppointmentDTO convertAppointmentToDTO(Appointment appointment) {
-        return modelMapper.map(appointment, AppointmentDTO.class);
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setId(appointment.getId());
+        dto.setAppointmentTime(appointment.getAppointmentTime());
+        dto.setReason(appointment.getReason());
+        dto.setStatus(appointment.getStatus());
+        dto.setAppointmentFee(appointment.getAppointmentFee());
+
+        Doctor doc = appointment.getDoctor();
+        if (doc != null) {
+            dto.setDoctorId(doc.getId());
+            dto.setDoctorName(doc.getUser() != null ? doc.getUser().getName() : null);
+            dto.setDoctorSpecialization(doc.getSpecialization());
+        }
+
+        Patient pat = appointment.getPatient();
+        if (pat != null) {
+            dto.setPatientId(pat.getId());
+            dto.setPatientName(pat.getUser() != null ? pat.getUser().getName() : null);
+        }
+
+        return dto;
     }
 }

@@ -19,20 +19,21 @@ public class Doctor {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    private String name;
-    private String specialization;
-    private String email;
-    private String phone;
+    // Link to User table (contains common attributes: name, email, phone, profilePictureUrl)
+    @OneToOne
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
+    private User user;
+
+    // Doctor-specific attributes
+    @Column(name = "specialization")
+    private String specialization; // Legacy field, kept for backward compatibility
 
     @Column(name = "consultation_fee", precision = 10, scale = 2)
     private BigDecimal fee;
 
-    @Column(name = "profile_picture_name")
-    private String profilePictureName; // File name of the profile picture
-    
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    // Appointment duration in minutes for each slot (default 15 minutes)
+    @Column(name = "appointment_duration_minutes")
+    private Integer appointmentDurationMinutes = 15;
 
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WorkingHour> workingHours = new ArrayList<>();
@@ -45,8 +46,4 @@ public class Doctor {
         inverseJoinColumns = @JoinColumn(name = "specialization_id")
     )
     private Set<Specialization> specializations = new HashSet<>();
-
-    // Appointment duration in minutes for each slot (default 15 minutes)
-    @Column(name = "appointment_duration_minutes")
-    private Integer appointmentDurationMinutes = 15;
 }

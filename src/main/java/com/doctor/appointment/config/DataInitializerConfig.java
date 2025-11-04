@@ -33,6 +33,9 @@ public class DataInitializerConfig {
                 adminUser.setEmail("admin@doctorappointment.com");
                 adminUser.setPassword(passwordEncoder.encode("admin123"));
                 adminUser.setRole(Role.ADMIN);
+                // Set required common attributes
+                adminUser.setName("System Administrator");
+                adminUser.setPhone("0000000000");
                 
                 userRepository.save(adminUser);
                 log.info("Default admin user created");

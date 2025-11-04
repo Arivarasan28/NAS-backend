@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Data
 @AllArgsConstructor
@@ -25,4 +26,5 @@ public class AppointmentDTO {
     private LocalDateTime appointmentTime;
     private String reason;
     private AppointmentStatus status;
+    private BigDecimal appointmentFee;
 }

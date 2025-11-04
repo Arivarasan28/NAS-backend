@@ -37,4 +37,11 @@ public class UserCreateDTO {
     @Pattern(regexp = "ADMIN|RECEPTIONIST|DOCTOR|PATIENT", message = "Role must be one of: ADMIN, RECEPTIONIST, DOCTOR, PATIENT")
     @Schema(description = "User role", example = "PATIENT", allowableValues = {"ADMIN", "RECEPTIONIST", "DOCTOR", "PATIENT"})
     private String role;
+    
+    // Common user attributes (added for User-Role architecture)
+    @Schema(description = "Full name of the user", example = "John Doe")
+    private String name;
+    
+    @Schema(description = "Phone number", example = "1234567890")
+    private String phone;
 }

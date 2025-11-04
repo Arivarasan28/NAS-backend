@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Data
 @AllArgsConstructor
@@ -26,6 +27,9 @@ public class Appointment {
 
     private LocalDateTime appointmentTime;
     private String reason;
+    
+    @Column(name = "appointment_fee", precision = 10, scale = 2)
+    private BigDecimal appointmentFee;
     
     @Enumerated(EnumType.STRING)
     private AppointmentStatus status = AppointmentStatus.BOOKED; // Default for patient bookings

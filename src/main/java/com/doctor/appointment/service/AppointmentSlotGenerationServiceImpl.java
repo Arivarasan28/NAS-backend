@@ -92,7 +92,7 @@ public class AppointmentSlotGenerationServiceImpl implements AppointmentSlotGene
                 slot.setEndTime(slotEnd);
                 slot.setDurationMinutes(durationMinutes);
                 slot.setDoctorId(doctorId);
-                slot.setDoctorName(doctor.getName());
+                slot.setDoctorName(doctor.getUser() != null ? doctor.getUser().getName() : "Unknown");
                 slot.setAvailable(!isOccupied);
                 
                 if (isOccupied) {
@@ -235,14 +235,14 @@ public class AppointmentSlotGenerationServiceImpl implements AppointmentSlotGene
         Doctor doctor = appointment.getDoctor();
         if (doctor != null) {
             dto.setDoctorId(doctor.getId());
-            dto.setDoctorName(doctor.getName());
+            dto.setDoctorName(doctor.getUser() != null ? doctor.getUser().getName() : "Unknown");
             dto.setDoctorSpecialization(doctor.getSpecialization());
         }
         
         Patient patient = appointment.getPatient();
         if (patient != null) {
             dto.setPatientId(patient.getId());
-            dto.setPatientName(patient.getName());
+            dto.setPatientName(patient.getUser() != null ? patient.getUser().getName() : "Unknown");
         }
         
         return dto;

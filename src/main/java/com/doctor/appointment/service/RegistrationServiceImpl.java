@@ -68,12 +68,10 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     private void createDoctor(User user, UserCreateDTO userCreateDTO) {
         Doctor doctor = new Doctor();
-        doctor.setName(userCreateDTO.getUsername());
-        doctor.setEmail(userCreateDTO.getEmail());
         doctor.setUser(user);
-        // Default values for other fields
-        doctor.setPhone("");
+        // Set doctor-specific default values
         doctor.setSpecialization("General");
+        doctor.setAppointmentDurationMinutes(15);
         
         doctorRepository.save(doctor);
         log.info("Doctor created for user: {}", user.getUsername());
@@ -84,11 +82,8 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     private void createPatient(User user, UserCreateDTO userCreateDTO) {
         Patient patient = new Patient();
-        patient.setName(userCreateDTO.getUsername());
-        patient.setEmail(userCreateDTO.getEmail());
         patient.setUser(user);
-        // Default values for other fields
-        patient.setPhone("");
+        // Set patient-specific default values
         patient.setAddress("");
         
         patientRepository.save(patient);
@@ -100,11 +95,8 @@ public class RegistrationServiceImpl implements RegistrationService {
      */
     private void createReceptionist(User user, UserCreateDTO userCreateDTO) {
         Receptionist receptionist = new Receptionist();
-        receptionist.setName(userCreateDTO.getUsername());
-        receptionist.setEmail(userCreateDTO.getEmail());
         receptionist.setUser(user);
-        // Default values for other fields
-        receptionist.setPhone("");
+        // Set receptionist-specific default values
         receptionist.setDepartment("General");
         
         receptionistRepository.save(receptionist);

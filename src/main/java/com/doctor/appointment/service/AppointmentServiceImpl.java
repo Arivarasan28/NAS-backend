@@ -94,6 +94,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         Doctor doctor = doctorRepository.findById(appointmentCreateDTO.getDoctorId())
                 .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + appointmentCreateDTO.getDoctorId()));
         appointment.setDoctor(doctor);
+        // Set fee from doctor
+        appointment.setAppointmentFee(doctor.getFee());
 
         // Set patient if provided
         Patient patient = patientRepository.findById(appointmentCreateDTO.getPatientId())
@@ -125,12 +127,13 @@ public class AppointmentServiceImpl implements AppointmentService {
         dto.setAppointmentTime(appointment.getAppointmentTime());
         dto.setReason(appointment.getReason());
         dto.setStatus(appointment.getStatus());
+        dto.setAppointmentFee(appointment.getAppointmentFee());
         
         // Doctor information
         Doctor doctor = appointment.getDoctor();
         if (doctor != null) {
             dto.setDoctorId(doctor.getId());
-            dto.setDoctorName(doctor.getName());
+            dto.setDoctorName(doctor.getUser() != null ? doctor.getUser().getName() : "Unknown");
             dto.setDoctorSpecialization(doctor.getSpecialization());
         }
         
@@ -138,7 +141,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         Patient patient = appointment.getPatient();
         if (patient != null) {
             dto.setPatientId(patient.getId());
-            dto.setPatientName(patient.getName());
+            dto.setPatientName(patient.getUser() != null ? patient.getUser().getName() : "Unknown");
         }
         
         return dto;
@@ -325,6 +328,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 slot.setAppointmentTime(LocalDateTime.of(date, currentSlotStart));
                 slot.setStatus(AppointmentStatus.AVAILABLE); // Set as available by default
                 slot.setReason("Available Appointment Slot");
+                // Copy doctor's fee into slot
+                slot.setAppointmentFee(doctor.getFee());
                 
                 // Save the appointment slot
                 createdAppointments.add(appointmentRepository.save(slot));
@@ -387,7 +392,8 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
             
             Doctor doctor = doctorOptional.get();
-            System.out.println("Found doctor: " + doctor.getId() + " - " + doctor.getName());
+            String doctorName = doctor.getUser() != null ? doctor.getUser().getName() : "Unknown";
+            System.out.println("Found doctor: " + doctor.getId() + " - " + doctorName);
             
             // Calculate start and end of the day
             LocalDateTime startOfDay = date.atStartOfDay();
@@ -455,6 +461,10 @@ public class AppointmentServiceImpl implements AppointmentService {
         AppointmentStatus fromStatus = appointment.getStatus();
         appointment.setPatient(patient);
         appointment.setStatus(AppointmentStatus.BOOKED);
+        // Ensure fee populated (legacy slots)
+        if (appointment.getAppointmentFee() == null && appointment.getDoctor() != null) {
+            appointment.setAppointmentFee(appointment.getDoctor().getFee());
+        }
         
         // Save the updated appointment
         Appointment updatedAppointment = appointmentRepository.save(appointment);
@@ -503,6 +513,10 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStatus(AppointmentStatus.BOOKED);
         appointment.setReservedByPatientId(null);
         appointment.setReservationExpiresAt(null);
+        // Ensure fee populated (legacy slots)
+        if (appointment.getAppointmentFee() == null && appointment.getDoctor() != null) {
+            appointment.setAppointmentFee(appointment.getDoctor().getFee());
+        }
         
         Appointment confirmedAppointment = appointmentRepository.save(appointment);
         

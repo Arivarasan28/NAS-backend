@@ -68,17 +68,32 @@ public class DoctorServiceImpl implements DoctorService {
             doctor.setSpecialization(doctorCreateDTO.getSpecializationNames().get(0));
         }
 
+        // Link to existing user account by username (required)
+        if (doctorCreateDTO.getUsername() == null || doctorCreateDTO.getUsername().isBlank()) {
+            throw new RuntimeException("Username is required to link doctor to user account");
+        }
+        User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
+        doctor.setUser(linkedUser);
+        
+        // Update user's common attributes from DTO
+        if (doctorCreateDTO.getName() != null) {
+            linkedUser.setName(doctorCreateDTO.getName());
+        }
+        if (doctorCreateDTO.getEmail() != null) {
+            linkedUser.setEmail(doctorCreateDTO.getEmail());
+        }
+        if (doctorCreateDTO.getPhone() != null) {
+            linkedUser.setPhone(doctorCreateDTO.getPhone());
+        }
+        
+        // Handle profile picture upload
         if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
             String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
-            doctor.setProfilePictureName(fileName);
+            linkedUser.setProfilePictureUrl("/uploads/profile_pictures/" + fileName);
         }
-
-        // Link to existing user account by username if provided
-        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank()) {
-            User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
-            doctor.setUser(linkedUser);
-        }
+        
+        userRepository.save(linkedUser);
 
         // Default appointment duration to 15 minutes if not provided
         if (doctor.getAppointmentDurationMinutes() == null) {
@@ -90,8 +105,20 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     @Override
+    @Transactional
     public void deleteById(int id) {
-        doctorRepository.deleteById(id);
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Doctor not found: " + id));
+
+        User linkedUser = doctor.getUser();
+
+        // Delete doctor first to release FK (doctors.user_id)
+        doctorRepository.delete(doctor);
+
+        // Then delete associated user (if any)
+        if (linkedUser != null) {
+            userRepository.delete(linkedUser);
+        }
     }
 
     @Override
@@ -100,8 +127,33 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor existingDoctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found: " + doctorId));
 
-        // Update doctor fields
-        existingDoctor.setName(doctorCreateDTO.getName());
+        // Ensure doctor has associated user
+        if (existingDoctor.getUser() == null) {
+            throw new RuntimeException("Doctor has no associated user account. Cannot update.");
+        }
+        
+        User user = existingDoctor.getUser();
+        
+        // Update user's common attributes
+        if (doctorCreateDTO.getName() != null) {
+            user.setName(doctorCreateDTO.getName());
+        }
+        if (doctorCreateDTO.getEmail() != null) {
+            user.setEmail(doctorCreateDTO.getEmail());
+        }
+        if (doctorCreateDTO.getPhone() != null) {
+            user.setPhone(doctorCreateDTO.getPhone());
+        }
+        
+        // Handle profile picture if provided
+        if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
+            String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
+            user.setProfilePictureUrl("/uploads/profile_pictures/" + fileName);
+        }
+        
+        userRepository.save(user);
+        
+        // Update doctor-specific fields
         // If list provided, map many-to-many and keep legacy field in sync; else use single string
         if (doctorCreateDTO.getSpecializationNames() != null && !doctorCreateDTO.getSpecializationNames().isEmpty()) {
             List<Specialization> specs = doctorCreateDTO.getSpecializationNames().stream()
@@ -111,35 +163,25 @@ public class DoctorServiceImpl implements DoctorService {
             existingDoctor.getSpecializations().clear();
             existingDoctor.getSpecializations().addAll(specs);
             existingDoctor.setSpecialization(doctorCreateDTO.getSpecializationNames().get(0));
-        } else {
+        } else if (doctorCreateDTO.getSpecialization() != null) {
             existingDoctor.setSpecialization(doctorCreateDTO.getSpecialization());
         }
-        existingDoctor.setEmail(doctorCreateDTO.getEmail());
-        existingDoctor.setPhone(doctorCreateDTO.getPhone());
-        existingDoctor.setFee(doctorCreateDTO.getFee());
+        
+        if (doctorCreateDTO.getFee() != null) {
+            existingDoctor.setFee(doctorCreateDTO.getFee());
+        }
 
-        // Map appointment duration if provided (can be null to keep existing)
+        // Map appointment duration if provided
         if (doctorCreateDTO.getAppointmentDurationMinutes() != null) {
             existingDoctor.setAppointmentDurationMinutes(doctorCreateDTO.getAppointmentDurationMinutes());
         }
 
-        // Handle profile picture if provided
-        if (doctorCreateDTO.getProfilePicture() != null && !doctorCreateDTO.getProfilePicture().isEmpty()) {
-            String fileName = saveProfilePicture(doctorCreateDTO.getProfilePicture());
-            existingDoctor.setProfilePictureName(fileName);
-        }
-
-        // Optionally re-link to a different user by username (admin/receptionist action)
-        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank()) {
-            User linkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
+        // Optionally re-link to a different user by username (admin action)
+        if (doctorCreateDTO.getUsername() != null && !doctorCreateDTO.getUsername().isBlank() 
+                && !doctorCreateDTO.getUsername().equals(user.getUsername())) {
+            User newLinkedUser = userRepository.findByUsername(doctorCreateDTO.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found with username: " + doctorCreateDTO.getUsername()));
-            existingDoctor.setUser(linkedUser);
-        }
-
-        // Make sure we preserve the User relationship
-        // This is critical - without this, the relationship might be lost during update
-        if (existingDoctor.getUser() == null) {
-            throw new RuntimeException("Doctor has no associated user account. Cannot update.");
+            existingDoctor.setUser(newLinkedUser);
         }
 
         Doctor updatedDoctor = doctorRepository.save(existingDoctor);
@@ -181,14 +223,31 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     private DoctorDTO toDTO(Doctor doctor) {
-        DoctorDTO dto = modelMapper.map(doctor, DoctorDTO.class);
-        if (doctor.getSpecializations() != null) {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(doctor.getId());
+        
+        // Map common attributes from User
+        if (doctor.getUser() != null) {
+            dto.setName(doctor.getUser().getName());
+            dto.setEmail(doctor.getUser().getEmail());
+            dto.setPhone(doctor.getUser().getPhone());
+            dto.setProfilePictureUrl(doctor.getUser().getProfilePictureUrl());
+        }
+        
+        // Map doctor-specific attributes
+        dto.setSpecialization(doctor.getSpecialization());
+        dto.setFee(doctor.getFee());
+        dto.setAppointmentDurationMinutes(doctor.getAppointmentDurationMinutes());
+        
+        // Map specializations list
+        if (doctor.getSpecializations() != null && !doctor.getSpecializations().isEmpty()) {
             dto.setSpecializations(
                 doctor.getSpecializations().stream()
                         .map(Specialization::getName)
                         .collect(Collectors.toList())
             );
         }
+        
         return dto;
     }
 }

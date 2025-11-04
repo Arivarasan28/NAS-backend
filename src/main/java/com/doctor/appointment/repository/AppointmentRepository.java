@@ -3,6 +3,8 @@ package com.doctor.appointment.repository;
 import com.doctor.appointment.model.Appointment;
 import com.doctor.appointment.model.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -29,4 +31,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Intege
             
     // Find appointments by patient ID
     List<Appointment> findByPatientId(int patientId);
+
+    // Fetch all appointments with patient and doctor eagerly to avoid lazy loading issues
+    @EntityGraph(attributePaths = {"patient", "doctor"})
+    @Query("SELECT a FROM Appointment a")
+    List<Appointment> findAllWithPatientAndDoctor();
 }

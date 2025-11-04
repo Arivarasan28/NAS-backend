@@ -54,7 +54,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public List<AppointmentDTO> findAll() {
-        return appointmentRepository.findAll().stream()
+        // Use entity graph to eagerly fetch patient and doctor to avoid lazy-loading issues
+        return appointmentRepository.findAllWithPatientAndDoctor().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
